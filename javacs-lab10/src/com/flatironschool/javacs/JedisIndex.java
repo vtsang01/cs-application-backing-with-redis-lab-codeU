@@ -67,22 +67,28 @@ public class JedisIndex {
 	 * @return Set of URLs.
 	 */
 	public Set<String> getURLs(String term) {
-        // FILL THIS IN!
-		return null;
+		return jedis.smembers(urlSetKey(term)); 
 	}
 
-    /**
+    	/**
 	 * Looks up a term and returns a map from URL to count.
 	 * 
 	 * @param term
 	 * @return Map from URL to count.
 	 */
 	public Map<String, Integer> getCounts(String term) {
-        // FILL THIS IN!
-		return null;
+        	Map<String, Integer> counts = new HashMap<String, Integer>();
+        	Set<String> urls = getURLs(term); 
+
+        	for (String url : urls){
+        		String tc_key = termCounterKey(url);
+        		String value = jedis.hget(tc_key, term);  
+        		counts.put(url, Integer.parseInt(value)); 
+        	}
+		return counts;
 	}
 
-    /**
+    	/**
 	 * Returns the number of times the given term appears at the given URL.
 	 * 
 	 * @param url
@@ -90,8 +96,9 @@ public class JedisIndex {
 	 * @return
 	 */
 	public Integer getCount(String url, String term) {
-        // FILL THIS IN!
-		return null;
+		String key = termCounterKey(url); 
+		String value = jedis.hget(key, term);
+		return Integer.parseInt(value); 
 	}
 
 
@@ -102,7 +109,29 @@ public class JedisIndex {
 	 * @param paragraphs  Collection of elements that should be indexed.
 	 */
 	public void indexPage(String url, Elements paragraphs) {
-        // FILL THIS IN!
+        	TermCounter tc = new TermCounter(url);
+        	tc.processElements(paragraphs); 
+        	addURLSet(url, tc); 
+        	addTCSet(url, tc); 
+	}
+
+	private void addURLSet(String url, TermCounter tc){
+		Transaction t = jedis.multi();
+		for (String term : tc.keySet()){
+			String key = urlSetKey(term); 
+			t.sadd(key, url); 
+		}
+		t.exec(); 
+	}
+
+	private void addTCSet(String url, TermCounter tc){
+		Transaction t = jedis.multi();
+		for (String term : tc.keySet()){
+			String key = termCounterKey(url);  
+			Integer value = tc.get(term); 
+			t.hset(key, term, Integer.toString(value)); 
+		}
+		t.exec(); 
 	}
 
 	/**
@@ -246,7 +275,7 @@ public class JedisIndex {
 		String url = "https://en.wikipedia.org/wiki/Java_(programming_language)";
 		Elements paragraphs = wf.readWikipedia(url);
 		index.indexPage(url, paragraphs);
-		
+
 		url = "https://en.wikipedia.org/wiki/Programming_language";
 		paragraphs = wf.readWikipedia(url);
 		index.indexPage(url, paragraphs);

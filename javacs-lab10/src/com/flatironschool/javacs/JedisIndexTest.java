@@ -34,7 +34,7 @@ public class JedisIndexTest {
 		jedis = JedisMaker.make();
 		index = new JedisIndex(jedis);
 		
-		loadIndex(index);
+		loadIndex(index); 
 	}
 	
 	/**
